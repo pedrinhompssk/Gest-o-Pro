@@ -1,12 +1,12 @@
-import { Component, inject, effect, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, inject, effect, signal, computed } from '@angular/core';
+import { CommonModule, CurrencyPipe, PercentPipe } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { StoreService, Transaction } from '../services/store.service';
 
 @Component({
   selector: 'app-add-transaction-modal',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, CurrencyPipe, PercentPipe],
   template: `
     @if (store.isModalOpen()) {
       <div class="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -70,48 +70,40 @@ import { StoreService, Transaction } from '../services/store.service';
                </div>
             </div>
 
-            <!-- Custom Category Dropdown -->
-            <div class="relative">
-              <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{{ store.dict().modal.category }}</label>
-              
-              <div class="relative">
-                <button type="button" 
-                  (click)="isCategoryDropdownOpen.set(!isCategoryDropdownOpen())"
-                  class="w-full pl-11 pr-10 py-3 bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none text-left flex items-center text-gray-900 dark:text-white transition">
-                   
-                   <span class="absolute left-4 text-gray-400 material-symbols-rounded text-lg">
-                      {{ getCategoryIcon(form.get('category')?.value) }}
-                   </span>
-                   
-                   {{ form.get('category')?.value }}
+            <!-- Visual Category Grid -->
+            <div>
+              <div class="flex justify-between items-end mb-3">
+                 <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide">{{ store.dict().modal.category }}</label>
+                 
+                 <!-- Budget Feedback -->
+                 @if (transactionType === 'expense' && selectedCategoryBudget(); as budget) {
+                   <div class="text-[10px] text-right animate-fade-in">
+                      <span class="text-gray-500">{{ store.dict().modal.budgetStatus }}: </span>
+                      <span [class]="'font-bold ' + (budget.percentage > 90 ? 'text-red-500' : 'text-emerald-500')">
+                         {{ budget.spent | currency:store.currencyCode():'symbol':'1.0-0' }} / {{ budget.limit | currency:store.currencyCode():'symbol':'1.0-0' }}
+                      </span>
+                      <div class="w-24 h-1 bg-gray-200 dark:bg-gray-700 rounded-full mt-1 ml-auto overflow-hidden">
+                         <div [class]="'h-full rounded-full ' + (budget.percentage > 90 ? 'bg-red-500' : 'bg-emerald-500')" [style.width.%]="Math.min(budget.percentage, 100)"></div>
+                      </div>
+                   </div>
+                 }
+              </div>
 
-                   <span class="absolute right-4 text-gray-400 material-symbols-rounded transition-transform duration-200"
-                      [class.rotate-180]="isCategoryDropdownOpen()">
-                      expand_more
-                   </span>
-                </button>
-
-                <!-- Dropdown Menu -->
-                @if (isCategoryDropdownOpen()) {
-                  <div class="absolute inset-0 z-10" (click)="isCategoryDropdownOpen.set(false)"></div> <!-- Transparent backdrop to close -->
-                  <div class="absolute w-full mt-2 bg-white dark:bg-dark-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-20 max-h-60 overflow-y-auto custom-scrollbar animate-fade-in">
-                     @for (cat of store.categories(); track cat.id) {
-                       <button type="button" 
-                          (click)="selectCategory(cat.id)"
-                          class="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition text-sm text-gray-700 dark:text-gray-200"
-                          [class.bg-brand-50]="form.get('category')?.value === cat.id"
-                          [class.dark:bg-brand-900]="form.get('category')?.value === cat.id">
-                          <div class="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400">
-                             <span class="material-symbols-rounded text-lg">{{ cat.icon }}</span>
-                          </div>
-                          <span class="font-medium">{{ cat.id }}</span>
-                          @if (form.get('category')?.value === cat.id) {
-                            <span class="ml-auto material-symbols-rounded text-brand-500">check</span>
-                          }
-                       </button>
-                     }
-                  </div>
-                }
+              <div class="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                 @for (cat of store.categories(); track cat.id) {
+                    <button type="button" 
+                       (click)="selectCategory(cat.id)"
+                       [class]="'flex flex-col items-center justify-center p-3 rounded-xl border transition-all duration-200 ' + 
+                       (selectedCategoryId() === cat.id 
+                          ? 'bg-brand-50 dark:bg-brand-900/30 border-brand-500 dark:border-brand-500 ring-1 ring-brand-500' 
+                          : 'bg-white dark:bg-gray-700/30 border-gray-200 dark:border-gray-600 hover:border-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700')">
+                       
+                       <div [class]="'w-8 h-8 rounded-full flex items-center justify-center mb-1.5 ' + (cat.color ? cat.color : 'bg-gray-100 text-gray-600')">
+                          <span class="material-symbols-rounded text-lg">{{ cat.icon }}</span>
+                       </div>
+                       <span class="text-[10px] font-bold text-center leading-tight truncate w-full text-gray-700 dark:text-gray-300">{{ cat.id }}</span>
+                    </button>
+                 }
               </div>
             </div>
 
@@ -119,7 +111,7 @@ import { StoreService, Transaction } from '../services/store.service';
              @if (transactionType === 'expense') {
               <div class="pt-4 border-t border-gray-100 dark:border-gray-700 animate-fade-in space-y-4">
                 
-                <!-- Payment Method Pills (Better UX) -->
+                <!-- Payment Method Pills -->
                 <div>
                   <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">{{ store.dict().modal.paymentMethod }}</label>
                   <div class="flex flex-wrap gap-2">
@@ -203,10 +195,11 @@ import { StoreService, Transaction } from '../services/store.service';
 })
 export class AddTransactionModalComponent {
   store = inject(StoreService);
+  Math = Math;
   transactionType: 'income' | 'expense' = 'expense';
   isEditing = false;
   editingId: string | null = null;
-  isCategoryDropdownOpen = signal(false);
+  selectedCategoryId = signal<string>('Alimentação');
 
   form = new FormGroup({
     description: new FormControl('', [Validators.required]),
@@ -217,13 +210,43 @@ export class AddTransactionModalComponent {
     installments: new FormControl(1)
   });
 
+  // Calculate Budget Feedback Real-time
+  selectedCategoryBudget = computed(() => {
+     const catId = this.selectedCategoryId();
+     const budget = this.store.budgets().find(b => b.categoryId === catId);
+     
+     if (!budget || budget.limit <= 0) return null;
+
+     // Calculate spent this month for this category
+     const now = new Date();
+     const currentMonth = now.getMonth();
+     const currentYear = now.getFullYear();
+     
+     const spent = this.store.transactions()
+        .filter(t => t.type === 'expense' && t.category === catId)
+        .filter(t => {
+           const d = new Date(t.date);
+           return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+        })
+        .reduce((acc, t) => acc + t.amount, 0);
+
+     return {
+        limit: budget.limit,
+        spent,
+        percentage: (spent / budget.limit) * 100
+     };
+  });
+
   constructor() {
     effect(() => {
       const transaction = this.store.transactionToEdit();
-      if (transaction) {
+      
+      if (transaction && transaction.id) {
+        // Editing existing transaction
         this.isEditing = true;
         this.editingId = transaction.id;
-        this.transactionType = transaction.type;
+        this.transactionType = transaction.type || 'expense';
+        this.selectedCategoryId.set(transaction.category || 'Alimentação');
         this.form.patchValue({
           description: transaction.description,
           amount: transaction.amount,
@@ -233,9 +256,13 @@ export class AddTransactionModalComponent {
           installments: transaction.installments || 1
         });
       } else {
+        // New transaction (potentially pre-filled with type)
         this.isEditing = false;
         this.editingId = null;
         this.resetForm();
+        if (transaction && transaction.type) {
+           this.transactionType = transaction.type;
+        }
       }
     });
   }
@@ -249,19 +276,12 @@ export class AddTransactionModalComponent {
   }
 
   selectCategory(categoryId: string) {
+    this.selectedCategoryId.set(categoryId);
     this.form.patchValue({ category: categoryId });
-    this.isCategoryDropdownOpen.set(false);
-  }
-
-  getCategoryIcon(id: string | null | undefined): string {
-    if (!id) return 'label';
-    const cat = this.store.categories().find(c => c.id === id);
-    return cat ? cat.icon : 'label';
   }
 
   close() {
     this.store.closeModal();
-    this.isCategoryDropdownOpen.set(false);
   }
 
   resetForm() {
@@ -274,6 +294,7 @@ export class AddTransactionModalComponent {
       installments: 1
     });
     this.transactionType = 'expense';
+    this.selectedCategoryId.set('Alimentação');
   }
 
   submit() {

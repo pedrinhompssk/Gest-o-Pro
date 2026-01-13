@@ -27,7 +27,7 @@ interface ChatMessage {
         
         <!-- Chat Area -->
         <div class="flex-1 overflow-y-auto p-6 space-y-6 scroll-smooth" #chatContainer>
-          @if (messages().length === 0) {
+          @if (messages().length === 0 && !proactiveInsight()) {
             <div class="h-full flex flex-col items-center justify-center text-center p-8 opacity-60">
               <div class="w-16 h-16 bg-brand-100 dark:bg-brand-900/50 rounded-full flex items-center justify-center mb-4 text-brand-600 shadow-sm">
                 <span class="material-symbols-rounded text-3xl">psychology</span>
@@ -43,6 +43,14 @@ interface ChatMessage {
                 <button (click)="setInput(store.dict().advisor.actions.save)" class="px-4 py-2 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-full text-xs font-medium text-gray-700 dark:text-gray-200 transition border border-gray-200 dark:border-gray-600 shadow-sm">
                   {{ store.dict().advisor.actions.save }}
                 </button>
+              </div>
+            </div>
+          }
+          
+          @if(proactiveInsight() && messages().length === 0) {
+             <div class="flex justify-start animate-slide-up">
+              <div class="max-w-[85%] rounded-2xl px-5 py-3.5 text-sm leading-relaxed shadow-sm bg-gray-100 dark:bg-gray-700/50 text-gray-800 dark:text-gray-200 rounded-bl-none border border-gray-200 dark:border-gray-600">
+                <div [innerHTML]="formatMessage(proactiveInsight())"></div>
               </div>
             </div>
           }
@@ -110,22 +118,45 @@ export class AiAdvisorComponent {
   messages = signal<ChatMessage[]>([]);
   userInput = '';
   isLoading = signal(false);
+  proactiveInsight = signal<string>('');
 
   constructor() {
+    this.generateProactiveInsight();
+    
     // Scroll to bottom whenever messages change
     effect(() => {
-      const msgs = this.messages();
-      const loading = this.isLoading();
+      this.messages();
+      this.isLoading();
       setTimeout(() => this.scrollToBottom(), 50);
     });
   }
 
+  async generateProactiveInsight() {
+    if (this.store.transactions().length < 3) {
+      this.proactiveInsight.set("Olá! Adicione algumas transações e eu poderei te dar insights personalizados sobre suas finanças.");
+      return;
+    }
+    
+    this.isLoading.set(true);
+    const context = this.getFinancialContext();
+    const query = "Analyze the user's financial context and provide one single, interesting, and actionable insight as a friendly opening question. For example: 'I noticed your spending on X is up this month, would you like tips?' or 'You're doing great saving towards Y, want to explore investment options?'. Be very concise.";
+
+    try {
+      const response = await this.geminiService.getFinancialAdvice(context, query, this.store.language());
+      this.proactiveInsight.set(response);
+    } catch (err) {
+      this.proactiveInsight.set(this.store.dict().advisor.greeting);
+    } finally {
+      this.isLoading.set(false);
+    }
+  }
+
   setInput(text: string) {
     this.userInput = text;
+    this.sendMessage();
   }
 
   formatMessage(content: string): string {
-    // Simple markdown-like formatter for bold text
     return content.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
   }
 
@@ -135,22 +166,27 @@ export class AiAdvisorComponent {
     }
   }
 
+  private getFinancialContext(): string {
+    return `
+      Current Balance: ${this.store.totalBalance()} ${this.store.currencyCode()}.
+      Monthly Income: ${this.store.monthlyIncome()} ${this.store.currencyCode()}.
+      Monthly Expenses: ${this.store.monthlyExpenses()} ${this.store.currencyCode()}.
+      Top Expenses by Category: ${JSON.stringify(this.store.expensesByCategory().slice(0,3))}
+      Recent Transactions: ${this.store.transactions().slice(0,5).map(t => `${t.description}: ${t.amount}`).join(', ')}
+    `;
+  }
+
   async sendMessage(e?: Event) {
     e?.preventDefault();
     if (!this.userInput.trim() || this.isLoading()) return;
 
+    this.proactiveInsight.set(''); // Clear proactive insight once chat starts
     const query = this.userInput;
     this.userInput = '';
     this.messages.update(m => [...m, { role: 'user', content: query }]);
     this.isLoading.set(true);
 
-    // Prepare Context
-    const context = `
-      Current Balance: ${this.store.totalBalance()} ${this.store.currencyCode()}.
-      Monthly Income: ${this.store.monthlyIncome()} ${this.store.currencyCode()}.
-      Monthly Expenses: ${this.store.monthlyExpenses()} ${this.store.currencyCode()}.
-      Top Expenses by Category: ${JSON.stringify(this.store.expensesByCategory())}
-    `;
+    const context = this.getFinancialContext();
 
     try {
       const response = await this.geminiService.getFinancialAdvice(context, query, this.store.language());

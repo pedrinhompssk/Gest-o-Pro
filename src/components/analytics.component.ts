@@ -3,6 +3,7 @@ import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { StoreService } from '../services/store.service';
 import { FormsModule } from '@angular/forms';
 
+// Safely declare D3 in case it fails to load from CDN
 declare const d3: any;
 
 @Component({
@@ -10,8 +11,8 @@ declare const d3: any;
   standalone: true,
   imports: [CommonModule, CurrencyPipe, FormsModule, DatePipe],
   template: `
-    <div class="space-y-6 print:space-y-4 animate-fade-in">
-      
+    <div class="space-y-6 print:space-y-4 animate-fade-in pb-12">
+      <!-- ... (Template content remains the same, logic updated below) ... -->
       <!-- Modern Header -->
       <header class="flex flex-col xl:flex-row xl:items-end justify-between gap-6 print:hidden">
         <div>
@@ -75,56 +76,50 @@ declare const d3: any;
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 print:grid-cols-2 print:gap-4">
         
-        <!-- Chart -->
+        <!-- Bar Chart (Daily Activity) -->
         <div class="bg-white dark:bg-dark-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-6 flex flex-col relative overflow-hidden print:border-gray-300 print:shadow-none">
           <h3 class="w-full text-left text-lg font-bold text-gray-800 dark:text-white mb-6 flex items-center gap-2">
             <span class="w-1 h-6 bg-brand-500 rounded-full"></span>
-            {{ store.dict().analytics.distribution }}
+            {{ store.dict().analytics.daily }}
           </h3>
           <div class="w-full overflow-x-auto custom-scrollbar">
-             <div #chartContainer class="relative z-10 animate-fade-in min-w-[300px]"></div>
+             <div #barChartContainer class="relative z-10 animate-fade-in min-w-[300px]"></div>
           </div>
         </div>
 
-        <!-- Summary -->
-        <div class="space-y-6 print:break-inside-avoid">
-          <div class="bg-gradient-to-br from-brand-600 to-teal-700 rounded-2xl shadow-xl p-6 text-white relative overflow-hidden print:bg-white print:text-black print:border print:border-gray-300 print:shadow-none">
-             <!-- Background Texture -->
-             <div class="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-            
-            <h3 class="text-lg font-bold mb-6 relative z-10 flex items-center gap-2">
-               <span class="material-symbols-rounded opacity-80">analytics</span>
-               {{ store.dict().analytics.activity }}
-            </h3>
-            
-            <div class="grid grid-cols-2 gap-4 relative z-10">
-               <div class="bg-white/10 backdrop-blur-md border border-white/10 print:bg-gray-100 rounded-2xl p-4 transition hover:bg-white/20">
-                  <p class="text-xs opacity-80 mb-1 uppercase tracking-wider">{{ store.dict().dashboard.cards.income }}</p>
-                  <p class="text-xl font-bold">{{ monthlyIncome() | currency:store.currencyCode():'symbol' }}</p>
+        <!-- Donut Chart (Categories) -->
+        <div class="bg-white dark:bg-dark-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-6 flex flex-col relative overflow-hidden print:border-gray-300 print:shadow-none">
+          <h3 class="w-full text-left text-lg font-bold text-gray-800 dark:text-white mb-6 flex items-center gap-2">
+            <span class="w-1 h-6 bg-purple-500 rounded-full"></span>
+            {{ store.dict().analytics.distribution }}
+          </h3>
+          <div class="w-full overflow-x-auto custom-scrollbar flex justify-center">
+             <div #donutChartContainer class="relative z-10 animate-fade-in min-w-[300px] flex justify-center"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Advice Section -->
+      <div class="bg-gradient-to-br from-brand-600 to-teal-700 rounded-2xl shadow-xl p-6 text-white relative overflow-hidden print:hidden">
+         <div class="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+        <div class="relative z-10 flex flex-col md:flex-row gap-6 items-center">
+            <div class="flex-1">
+               <h3 class="text-xl font-bold mb-2 flex items-center gap-2">
+                 <span class="material-symbols-rounded opacity-80">lightbulb</span>
+                 {{ store.dict().analytics.adviceTitle }}
+               </h3>
+               <p class="opacity-90 leading-relaxed max-w-2xl">{{ store.dict().analytics.adviceText }}</p>
+            </div>
+            <div class="flex gap-4">
+               <div class="bg-white/10 backdrop-blur-md rounded-xl p-4 text-center min-w-[120px]">
+                  <p class="text-xs uppercase opacity-70 mb-1">Entradas</p>
+                  <p class="text-xl font-bold">{{ monthlyIncome() | currency:store.currencyCode():'symbol':'1.0-0' }}</p>
                </div>
-               <div class="bg-white/10 backdrop-blur-md border border-white/10 print:bg-gray-100 rounded-2xl p-4 transition hover:bg-white/20">
-                  <p class="text-xs opacity-80 mb-1 uppercase tracking-wider">{{ store.dict().dashboard.cards.expenses }}</p>
-                  <p class="text-xl font-bold">{{ monthlyExpenses() | currency:store.currencyCode():'symbol' }}</p>
-               </div>
-               <div class="col-span-2 bg-white/20 backdrop-blur-md border border-white/20 print:bg-gray-200 rounded-2xl p-5 flex justify-between items-center">
-                  <span class="text-sm font-medium opacity-90">{{ store.dict().dashboard.cards.balance }}</span>
-                  <span class="text-3xl font-bold">{{ monthlyIncome() - monthlyExpenses() | currency:store.currencyCode():'symbol' }}</span>
+               <div class="bg-white/10 backdrop-blur-md rounded-xl p-4 text-center min-w-[120px]">
+                  <p class="text-xs uppercase opacity-70 mb-1">Saídas</p>
+                  <p class="text-xl font-bold">{{ monthlyExpenses() | currency:store.currencyCode():'symbol':'1.0-0' }}</p>
                </div>
             </div>
-          </div>
-
-          <!-- Advice -->
-          <div class="bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-100 dark:border-amber-900/20 p-6 print:hidden">
-             <div class="flex gap-4">
-                <div class="p-3 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-500 rounded-xl h-fit">
-                   <span class="material-symbols-rounded">lightbulb</span>
-                </div>
-                <div>
-                  <h4 class="font-bold text-gray-900 dark:text-white mb-1">{{ store.dict().analytics.adviceTitle }}</h4>
-                  <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{{ store.dict().analytics.adviceText }}</p>
-                </div>
-             </div>
-          </div>
         </div>
       </div>
 
@@ -156,7 +151,6 @@ declare const d3: any;
                         </span>
                       </td>
                       <td class="px-6 py-4 text-gray-500 text-xs">
-                         <!-- Translate Payment Method Here -->
                          {{ getPaymentMethodLabel(t.paymentMethod) }}
                          @if(t.installments && t.installments > 1) { 
                            <span class="ml-1 text-brand-600 font-semibold">({{ t.installments }}x)</span> 
@@ -190,7 +184,8 @@ declare const d3: any;
   `]
 })
 export class AnalyticsComponent {
-  @ViewChild('chartContainer') chartContainer!: ElementRef;
+  @ViewChild('barChartContainer') barChartContainer!: ElementRef;
+  @ViewChild('donutChartContainer') donutChartContainer!: ElementRef;
   store = inject(StoreService);
   
   startDate = signal(this.getFirstDayOfMonth());
@@ -218,6 +213,7 @@ export class AnalyticsComponent {
       .reduce((acc, t) => acc + t.amount, 0);
   });
 
+  // Data for Donut Chart
   expensesByCategory = computed(() => {
     const expenses = this.filteredTransactions().filter(t => t.type === 'expense');
     const map = new Map<string, number>();
@@ -228,18 +224,45 @@ export class AnalyticsComponent {
     return Array.from(map, ([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value);
   });
 
+  // Data for Bar Chart (Daily Expenses)
+  dailyExpenses = computed(() => {
+    const expenses = this.filteredTransactions().filter(t => t.type === 'expense');
+    const map = new Map<string, number>();
+    
+    // Initialize map with range days (simplified: just present days)
+    expenses.forEach(t => {
+        // Format MM-DD for shorter labels
+        const dateParts = t.date.split('-');
+        const label = `${dateParts[2]}/${dateParts[1]}`;
+        const current = map.get(label) || 0;
+        map.set(label, current + t.amount);
+    });
+
+    return Array.from(map, ([name, value]) => ({ name, value }));
+  });
+
   constructor() {
     effect(() => {
-      const data = this.expensesByCategory();
-      if (this.chartContainer && typeof d3 !== 'undefined') {
-        this.renderBarChart(data);
-      }
+      // Trigger charts update when data changes
+      const dailyData = this.dailyExpenses();
+      const catData = this.expensesByCategory();
+      
+      // Delay slightly to ensure DOM is ready if switching views
+      setTimeout(() => {
+         if (typeof d3 !== 'undefined') {
+            if (this.barChartContainer) this.renderBarChart(dailyData);
+            if (this.donutChartContainer) this.renderDonutChart(catData);
+         } else {
+            // Graceful fallback if D3 fails to load (offline or blocked)
+            if (this.barChartContainer) this.barChartContainer.nativeElement.innerHTML = '<p class="text-xs text-red-500 text-center p-4">Erro: Biblioteca de gráficos não carregada (Offline?)</p>';
+            if (this.donutChartContainer) this.donutChartContainer.nativeElement.innerHTML = '<p class="text-xs text-red-500 text-center p-4">Erro: Biblioteca de gráficos não carregada</p>';
+         }
+      }, 100);
     });
   }
 
   getPaymentMethodLabel(method?: string): string {
     if (!method) return '-';
-    // Access the translation dictionary dynamically
     const methods = this.store.dict().modal.methods as any;
     return methods[method] || method;
   }
@@ -262,15 +285,12 @@ export class AnalyticsComponent {
     const headers = ['Data', 'Descrição', 'Categoria', 'Tipo', 'Valor', 'Método', 'Parcelas', 'Status'];
     const BOM = "\uFEFF";
     
-    // Get translations for rows
     const methodsDict = this.store.dict().modal.methods as any;
     const typesDict = this.store.dict().modal.types as any;
 
     const rows = data.map(t => {
       const formattedAmount = t.amount.toFixed(2).replace('.', ',');
-      // Translate Type
       const typeLabel = typesDict[t.type] || t.type;
-      // Translate Method
       const methodLabel = t.paymentMethod ? (methodsDict[t.paymentMethod] || t.paymentMethod) : '-';
       
       return [
@@ -303,15 +323,15 @@ export class AnalyticsComponent {
   }
 
   renderBarChart(data: {name: string, value: number}[]) {
-    const element = this.chartContainer.nativeElement;
+    const element = this.barChartContainer.nativeElement;
     element.innerHTML = ''; 
 
     if (data.length === 0) {
-      element.innerHTML = '<p class="text-gray-500 text-sm p-4 text-center italic opacity-60">Sem dados para exibir.</p>';
+      element.innerHTML = '<p class="text-gray-500 text-sm p-12 text-center italic opacity-60">Sem dados para exibir.</p>';
       return;
     }
 
-    const margin = {top: 20, right: 20, bottom: 60, left: 60};
+    const margin = {top: 20, right: 20, bottom: 40, left: 50};
     const width = element.clientWidth - margin.left - margin.right;
     const height = 300 - margin.top - margin.bottom;
 
@@ -325,27 +345,23 @@ export class AnalyticsComponent {
     const x = d3.scaleBand()
       .range([0, width])
       .domain(data.map(d => d.name))
-      .padding(0.4); // More spacing between bars
+      .padding(0.4);
 
     svg.append("g")
       .attr("transform", `translate(0,${height})`)
       .call(d3.axisBottom(x).tickSize(0))
       .selectAll("text")
-        .style("text-anchor", "end")
-        .attr("dx", "-.8em")
-        .attr("dy", ".5em")
-        .attr("transform", "rotate(-25)")
-        .style("font-size", "11px")
+        .attr("dy", "1em")
+        .style("font-size", "10px")
         .style("font-weight", "500")
         .style("fill", this.store.darkMode() ? "#94a3b8" : "#64748b");
 
-    svg.select(".domain").remove(); // Remove bottom line
+    svg.select(".domain").remove();
 
     const y = d3.scaleLinear()
       .domain([0, d3.max(data, (d: any) => d.value) || 0])
       .range([height, 0]);
     
-    // Dashed Grid lines
     svg.append("g")
       .call(d3.axisLeft(y).ticks(5).tickSize(-width))
       .select(".domain").remove();
@@ -368,11 +384,11 @@ export class AnalyticsComponent {
         .attr("y", (d: any) => y(d.value))
         .attr("width", x.bandwidth())
         .attr("height", (d: any) => height - y(d.value))
-        .attr("fill", "url(#barGradient)") // Use gradient
-        .attr("rx", 6)
-        .attr("ry", 6);
+        .attr("fill", "url(#barGradient)")
+        .attr("rx", 4)
+        .attr("ry", 4);
 
-    // Add Gradient Definition
+    // Gradient
     const defs = svg.append("defs");
     const gradient = defs.append("linearGradient")
       .attr("id", "barGradient")
@@ -381,12 +397,92 @@ export class AnalyticsComponent {
       .attr("x2", "0%")
       .attr("y2", "100%");
     
-    gradient.append("stop")
-      .attr("offset", "0%")
-      .attr("stop-color", "#10b981"); // Emerald 500
+    gradient.append("stop").attr("offset", "0%").attr("stop-color", "#10b981");
+    gradient.append("stop").attr("offset", "100%").attr("stop-color", "#059669");
+  }
+
+  renderDonutChart(data: {name: string, value: number}[]) {
+    const element = this.donutChartContainer.nativeElement;
+    element.innerHTML = '';
+
+    if (data.length === 0) {
+       element.innerHTML = '<p class="text-gray-500 text-sm p-12 text-center italic opacity-60">Sem dados para exibir.</p>';
+       return;
+    }
+
+    const width = 300;
+    const height = 300;
+    const margin = 20;
+    const radius = Math.min(width, height) / 2 - margin;
+
+    const svg = d3.select(element)
+      .append("svg")
+        .attr("width", width)
+        .attr("height", height)
+      .append("g")
+        .attr("transform", `translate(${width / 2},${height / 2})`);
+
+    // Color scale
+    const color = d3.scaleOrdinal()
+      .domain(data.map(d => d.name))
+      .range(["#10b981", "#3b82f6", "#8b5cf6", "#f59e0b", "#ef4444", "#ec4899", "#6366f1", "#14b8a6"]);
+
+    const pie = d3.pie()
+      .value((d: any) => d.value)
+      .sort(null); // Keep order sorted by value from computed
+
+    const arc = d3.arc()
+      .innerRadius(radius * 0.6)         // This makes it a donut
+      .outerRadius(radius * 0.95)
+      .cornerRadius(6);
+
+    const arcHover = d3.arc()
+      .innerRadius(radius * 0.6)
+      .outerRadius(radius * 1.05)
+      .cornerRadius(6);
+
+    const arcs = svg.selectAll('allSlices')
+      .data(pie(data))
+      .enter();
+
+    // Slices
+    arcs.append('path')
+      .attr('d', arc)
+      .attr('fill', (d: any) => color(d.data.name))
+      .attr("stroke", "white")
+      .style("stroke-width", "2px")
+      .style("opacity", 0.9)
+      .on("mouseover", function(this: any, event: any, d: any) {
+          d3.select(this).transition().duration(200).attr("d", arcHover).style("opacity", 1);
+          // Add tooltip logic here if needed, simplified for now
+      })
+      .on("mouseout", function(this: any, event: any, d: any) {
+          d3.select(this).transition().duration(200).attr("d", arc).style("opacity", 0.9);
+      });
+
+    // Labels (simplified inside)
+    const total = data.reduce((acc, curr) => acc + curr.value, 0);
     
-    gradient.append("stop")
-      .attr("offset", "100%")
-      .attr("stop-color", "#059669"); // Emerald 600
+    svg.append("text")
+       .attr("text-anchor", "middle")
+       .attr("dy", "-0.5em")
+       .text("Total")
+       .style("font-size", "12px")
+       .style("fill", this.store.darkMode() ? "#94a3b8" : "#64748b")
+       .style("font-weight", "600")
+       .style("text-transform", "uppercase");
+
+    svg.append("text")
+       .attr("text-anchor", "middle")
+       .attr("dy", "1em")
+       .text(this.formatCurrency(total))
+       .style("font-size", "16px")
+       .style("fill", this.store.darkMode() ? "white" : "#1e293b")
+       .style("font-weight", "bold");
+  }
+
+  // Helper to format currency inside D3 (since pipe isn't available easily in pure JS D3)
+  private formatCurrency(value: number): string {
+     return new Intl.NumberFormat(this.store.localeCode(), { style: 'currency', currency: this.store.currencyCode() }).format(value);
   }
 }
